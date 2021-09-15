@@ -2,22 +2,38 @@ import json
 import re
 import sys, getopt
 import os
+import requests
+
 
 def get_projects_mock():
     """
     Read projects json
     """
     project_json = open("projects.json")
-    project_identity=json.load(project_json)
+    project_identity = json.load(project_json)
     return project_identity
 
-
+def get_projects_live():
+    resources = open("etc/default/telegraf")
+    data = []
+    keys = ["url", "token"]
+    for resource in resources:
+        info = resource.strip().split("\"")
+        data.append(info[1])
+    report = {keys[i]: data[i] for i in range(len(keys))}
+    head = {'PRIVATE-TOKEN: {token}'.format(token=report['token'])}
+    json2 = requests.get("{url}".format(url=report['url']))
+    project_identity = json2.json()
+    return project_identity
 
 def get_base_info():
     """
     Get projects and it's names
     """
-    loaded_json=get_projects_mock()
+    if str(sys.argv[1].split("-")[1])=="m":
+        loaded_json = get_projects_mock()
+    elif str(sys.argv[1].split("-")[1])=="l":
+        loaded_json = get_projects_live()
     projects_id_name = []
 
     for i in range(len(loaded_json)):
@@ -61,11 +77,13 @@ def get_all_ids(paths):
     """
     Get pipeline IDs from API
     """
+    match_status_list = ["success", "failed", "manual", "skipped", "cancelled"]
     project_id = []
     for path in paths:
         project_id_list = get_ids(path)
         for item in project_id_list:
-            project_id.append(item['id'])
+            if item['status'] in match_status_list:
+                project_id.append(item['id'])
     return project_id
 
 
@@ -111,7 +129,7 @@ def existing_id():
     """
     lst_id = []
     if not os.path.exists("ID_File.txt"):
-        pipe_id_file=open("ID_File.txt","a+")
+        pipe_id_file = open("ID_File.txt", "a+")
     else:
         pipe_id_file = open("ID_File.txt", "r+")
         pipelines_list = []
@@ -176,7 +194,7 @@ def print_influx_protocol(pipe_id_dictionary, report_dictionary, path):
     print(opening_line + tag_line + ",project_name=" + project_name + " " + field_line)
 
 
-def mock_protocols():
+def protocols():
     # Get Project_paths
     project_paths = get_projects_paths()
 
@@ -193,7 +211,6 @@ def mock_protocols():
         for i in compare_list:
             id_file.write(str(i) + ",")  # Write the IDs onto a file
         id_file.close()
-        print(compare_list)
         # Get Pipeline IDs infos from compared IDs
         pipe_id_list = []
 
@@ -202,10 +219,8 @@ def mock_protocols():
             # Get Pipe ID paths from get_ids(), pipe_ids is all the pipeline IDs stats per project
 
             for pipe_id in pipe_ids:  # Use each ID to get the report from JSON file
-                match_status_list = ["success", "failed", "manual", "skipped", "cancelled"]
                 match_status_tags = ["ref", "sha", "id", "web_url", "created_at", "source"]
-
-                if pipe_id['id'] in compare_list and pipe_id['status'] in match_status_list:  # Trace ID
+                if pipe_id['id'] in compare_list:  # Trace ID
                     report_dict = get_result_report(pipe_id['id'], project_path)
                     # Create path to report json then get a dictionary in return
                     print_dict = {key: pipe_id.get(key) for key in match_status_tags}
@@ -228,20 +243,20 @@ if __name__ == '__main__':
     argument_list = full_cmd_arguments[1:]
     short_options = "hml"
     long_options = ["help", "mock", "live"]
-
     if len(argument_list) == 0:
-        print("python3 report.py -h")
+        print("Options:\t-m,--mock\t Mock Test\n"
+              "\t\t-l,--live\t Live Test")
 
     try:
         arguments, values = getopt.getopt(argument_list, short_options, long_options)
         for current_argument, current_value in arguments:
             if current_argument in ("-m", "--mock"):
-                mock_protocols()
+                protocols()
             elif current_argument in ("-h", "--help"):
                 print("Options:\t-m,--mock\t Mock Test\n"
                       "\t\t-l,--live\t Live Test")
             elif current_argument in ("-l", "--live"):
-                print("Under Development")
+                protocols()
     except getopt.error as err:
         # Output error, and return with an error code
         print(str(err))
