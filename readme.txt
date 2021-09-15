@@ -2,6 +2,10 @@ This project is use for collecting report from GITLAB API
 To get the report we will be using Python 3 Script, report.py.
 To run the script, make sure your machine has Python 3 installed.
 
+Requirements to run the file:
+- edit the telegraf file etc/default for your url and your own token
+- projects.json on the github is a mock file so you will need to edit it or replace it with your own when you run the live test
+
 Use command line: 	python3 report.py [-options,--long-options] (Pick below)
 					   -h,--help (To get options help on terminal)
 					   -m,--mock (To run mock test)
