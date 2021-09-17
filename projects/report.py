@@ -62,7 +62,6 @@ def get_pipe_ids(url,arg):
     """
     Get All Pipelines IDs
     """
-    # pipe_list =  requests.get("https://gitlab.com/api/v4/projects/")
     if arg in ["-m", "--mock"]:
         link = url + "pipelines"
         id_list = open(link)
