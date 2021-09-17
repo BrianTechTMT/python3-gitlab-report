@@ -1,5 +1,5 @@
 This project is use for collecting report from GITLAB API
-To get the report we will be using Python 3 Script, report.py.
+To get the report we will be using Python 3 Script, report.py in projects folder.
 To run the script, make sure your machine has Python 3 installed.
 
 Requirements to run the file:
