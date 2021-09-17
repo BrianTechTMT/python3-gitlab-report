@@ -52,8 +52,9 @@ def live_url_request(url):
     """
     request_url = BASE_URL + url
     proj_token = get_live_token()
-    head = {'PRIVATE-TOKEN: {token}'.format(token=proj_token)}
+    head = {'PRIVATE-TOKEN: {url_token}'.format(url_token=proj_token)}
     json_response = requests.get(request_url)
+    #json_response = requests.get(request_url, headers=head)
     return json_response
 
 
