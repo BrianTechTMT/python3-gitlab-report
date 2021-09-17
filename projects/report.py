@@ -6,7 +6,7 @@ import requests
 
 
 STATUS_LIST = ["success", "failed", "manual", "skipped", "cancelled"]
-PROJECT_JSON_PATH = "/../projects.json"
+PROJECT_JSON_PATH = "/../config/projects.json"
 BASE_URL = "http://localhost:8000/PycharmProjects/pythonProject5/"
 TOKEN_FILE_PATH = "/../etc/default/telegraf"
 LAST_RUN_FILE = "/../var/tmp/tmp_pipeline_ids"
@@ -81,7 +81,7 @@ def get_match_pipe_ids(urls,arg):
     for url in urls:
         pipelines = get_pipe_ids(url,arg)
         for pipeline in pipelines:
-            if pipeline['status'] in STASTUS_LIST:
+            if pipeline['status'] in STATUS_LIST:
                 match_pipe_id_list.append(pipeline['id'])
     return match_pipe_id_list
 
