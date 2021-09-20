@@ -6,7 +6,8 @@ import requests
 
 STATUS_LIST = ["success", "failed", "manual", "skipped", "cancelled"]
 PROJECT_JSON_PATH = "/../config/projects.json"
-BASE_URL = "http://localhost:8000/PycharmProjects/pythonProject5/"
+BASE_URL = "http://localhost:8000/PycharmProjects/pythonProject5"
+#BASE_URL = "https://gitlab.com/api/v4"
 TOKEN_FILE_PATH = "/../etc/default/telegraf"
 LAST_RUN_FILE = "/var/tmp/tmp_pipeline_ids"
 
@@ -43,7 +44,7 @@ def get_projects_url_paths(*args):
     projects_url_paths = []
 
     for project in projects_infos:
-        projects_url_paths.append(BASE_URL + "projects/{id}/".format(id=project[0]))
+        projects_url_paths.append(BASE_URL + "/projects/{id}/".format(id=project[0]))
     return projects_url_paths
 
 
@@ -55,16 +56,15 @@ def live_url_request(url, arg):
         json_response = requests.get(url)
 
     elif arg == "-l":
-        json_response = requests.get(url, headers={'PRIVATE-TOKEN: {url_token}'
-                                     .format(url_token=get_live_token())})
-    return json_response.json()
+        live_token= get_live_token()
+        json_response = requests.get(url, headers={"PRIVATE-TOKEN": live_token})
+    return json_response
 
 
 def get_pipe_ids(url, arg):
     """
     Get All Pipelines IDs
     """
-    url += "pipelines"
     encoded_pipelines = live_url_request(url, arg)
     return encoded_pipelines
 
@@ -75,7 +75,7 @@ def get_match_pipe_ids(urls, arg):
     """
     match_pipe_id_list = []
     for url in urls:
-        pipelines = get_pipe_ids(url, arg)
+        pipelines = get_pipe_ids(url + "pipelines", arg).json()
         for pipeline in pipelines:
             if pipeline['status'] in STATUS_LIST:
                 match_pipe_id_list.append(pipeline['id'])
@@ -92,23 +92,22 @@ def get_project_name(project_number):
             return name[i][1]
 
 
-def get_result_report(project_id, url):
+def get_result_report(project_id, url, arg):
     """
     Get Report for each pipeline
     """
-    program_arg = sys.argv[1].split("-")[1]
+    pipe_list = {}
     report_url = url + "pipeline_id/" + str(project_id) + "/test_report_summary"
 
-    if program_arg in ["m", "mock"]:
+    if arg in ["m", "mock"]:
         pipe_list = requests.get(report_url)
-    elif program_arg in ["l", "live"]:
-        pipe_list = live_url_request(report_url)
-    data = pipe_list.json()
+    elif arg in ["l", "live"]:
+        pipe_list = live_url_request(report_url,arg)
 
     report_tags = ["name", "total_time", "total_count", "success_count", "failed_count", "skipped_count", "error_count",
                    "build_ids", "suite_error"]
     report_data = {}
-    for k, v in data.items():
+    for k, v in pipe_list.items():
 
         if type(v) == list:
 
@@ -171,7 +170,7 @@ def print_influx_protocol(print_report_dict, url):
         if k in tags:
 
             if k == "build_ids":
-                tag_line += ",{key}={value}".format(key=k, value=v[0])
+                tag_line += ",{key}={value}".format(key=k, value=v)
 
             else:
                 tag_line += ",{key}={value}".format(key=k, value=v)
@@ -202,20 +201,19 @@ def get_report_summary(*arg):
     elif compared_ids_list != file_pipe_ids and len(compared_ids_list) != 0:
         id_file = open(os.path.dirname(__file__) + LAST_RUN_FILE, "w")
         list_to_write_to_file = file_pipe_ids + compared_ids_list
-        pipe_id_str = ','.join([str(i) for i in list_to_write_to_file])
+        pipe_id_str = ','.join([str(pipe_id) for pipe_id in list_to_write_to_file])
         id_file.write(pipe_id_str)
         id_file.close()
         # Get Pipeline IDs infos from compared IDs
 
         for each_project_url in projects_locations:  # A single url
-            print(each_project_url)
-            pipes = get_pipe_ids(each_project_url, arg)
-            # Get Pipe ID paths from get_pipe_ids(), pipe_ids is all the pipeline IDs stats per project
+            pipes = get_pipe_ids(each_project_url+"pipelines", arg).json()
 
+            # Get Pipe ID paths from get_pipe_ids(), pipe_ids is all the pipeline IDs stats per project
             for pipe in pipes:  # Use each pipe ID to get the report from JSON file
                 match_status_tags = ["ref", "sha", "id", "web_url", "created_at", "source", "name", "build_ids"]
                 if pipe['id'] in compared_ids_list:  # Trace ID
-                    report_dict = get_result_report(pipe['id'], each_project_url)
+                    report_dict = get_result_report(pipe['id'], each_project_url,arg)
                     # Create path to report json then get a dictionary in return
                     pipe_tag_dict = {key: pipe.get(key) for key in match_status_tags}
                     # reformat the dictionary
