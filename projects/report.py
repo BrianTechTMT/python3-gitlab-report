@@ -6,8 +6,8 @@ import requests
 
 STATUS_LIST = ["success", "failed", "manual", "skipped", "cancelled"]
 PROJECT_JSON_PATH = "/../config/projects.json"
-BASE_URL = "http://localhost:8000/PycharmProjects/pythonProject5"
-#BASE_URL = "https://gitlab.com/api/v4"
+#BASE_URL = "http://localhost:8000/PycharmProjects/pythonProject5"
+BASE_URL = "https://gitlab.com/api/v4"
 TOKEN_FILE_PATH = "/../etc/default/telegraf"
 LAST_RUN_FILE = "/var/tmp/tmp_pipeline_ids"
 
@@ -96,17 +96,16 @@ def get_result_report(project_id, url, arg):
     """
     Get Report for each pipeline
     """
-    pipe_list = {}
     report_url = url + "pipeline_id/" + str(project_id) + "/test_report_summary"
+    if arg == "-m" or arg == "--mock":
+        pipe_list = requests.get(report_url).json()
 
-    if arg in ["m", "mock"]:
-        pipe_list = requests.get(report_url)
-    elif arg in ["l", "live"]:
-        pipe_list = live_url_request(report_url,arg)
+    elif arg == "-l" or arg == "--live":
+        pipe_list = live_url_request(report_url,arg).json()
+
 
     report_tags = ["name", "total_time", "total_count", "success_count", "failed_count", "skipped_count", "error_count",
                    "build_ids", "suite_error"]
-    report_data = {}
     for k, v in pipe_list.items():
 
         if type(v) == list:
@@ -170,7 +169,7 @@ def print_influx_protocol(print_report_dict, url):
         if k in tags:
 
             if k == "build_ids":
-                tag_line += ",{key}={value}".format(key=k, value=v)
+                tag_line += ",{key}={value}".format(key=k, value=v[0])
 
             else:
                 tag_line += ",{key}={value}".format(key=k, value=v)
