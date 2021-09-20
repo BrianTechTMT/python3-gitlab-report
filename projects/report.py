@@ -46,13 +46,15 @@ def get_projects_url_paths(*args):
     return projects_url_paths
 
 
-def live_url_request(url):
+def live_url_request(url,arg):
     """
     Use for each time the script ask for json string from server
     """
     request_url = BASE_URL + url
-    # json_response = requests.get(request_url)
-    json_response = requests.get(request_url, headers= {'PRIVATE-TOKEN: {url_token}'
+    if arg == "-m":
+        json_response = requests.get(request_url)
+    elif arg == "-l":
+        json_response = requests.get(request_url, headers= {'PRIVATE-TOKEN: {url_token}'
                                  .format(url_token=get_live_token())})
     return json_response
 
@@ -67,7 +69,7 @@ def get_pipe_ids(url,arg):
         pipelines = json.load(id_list)
     elif arg in ["-l", "--live"]:
         url += "pipelines"
-        encoded_pipelines = live_url_request(url)
+        encoded_pipelines = live_url_request(url,arg)
         pipelines = encoded_pipelines.json()
     return pipelines
 
@@ -94,15 +96,6 @@ def get_project_name(project_number):
     for i in range(len(name)):
         if name[i][0] == project_number:
             return name[i][1]
-    """
-    file = open("projects.json", "r")
-    x = (json.load(file))
-
-    for i in range(len(x)):
-
-        if x[i][0] == project_number:
-            return x[i][1]
-    """
 
 
 def get_result_report(project_id, url):
