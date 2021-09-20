@@ -9,7 +9,7 @@ STATUS_LIST = ["success", "failed", "manual", "skipped", "cancelled"]
 PROJECT_JSON_PATH = "/../config/projects.json"
 BASE_URL = "http://localhost:8000/PycharmProjects/pythonProject5/"
 TOKEN_FILE_PATH = "/../etc/default/telegraf"
-LAST_RUN_FILE = "/../var/tmp/tmp_pipeline_ids"
+LAST_RUN_FILE = "/var/tmp/tmp_pipeline_ids"
 
 def get_projects():
     """
@@ -51,10 +51,9 @@ def live_url_request(url):
     Use for each time the script ask for json string from server
     """
     request_url = BASE_URL + url
-    proj_token = get_live_token()
-    head = {'PRIVATE-TOKEN: {url_token}'.format(url_token=proj_token)}
-    json_response = requests.get(request_url)
-    #json_response = requests.get(request_url, headers=head)
+    # json_response = requests.get(request_url)
+    json_response = requests.get(request_url, headers= {'PRIVATE-TOKEN: {url_token}'
+                                 .format(url_token=get_live_token())})
     return json_response
 
 
@@ -83,6 +82,7 @@ def get_match_pipe_ids(urls,arg):
         for pipeline in pipelines:
             if pipeline['status'] in STATUS_LIST:
                 match_pipe_id_list.append(pipeline['id'])
+    print(match_pipe_id_list)
     return match_pipe_id_list
 
 
@@ -143,15 +143,11 @@ def existing_pipe_ids():
     if not os.path.exists(os.path.dirname(__file__) + LAST_RUN_FILE): # Check if record file exist
         pipe_id_file = open(os.path.dirname(__file__) + LAST_RUN_FILE, "a+") # if not then create
     else:
-        pipe_id_file = open(os.path.dirname(__file__) + LAST_RUN_FILE, "r+") # else, start checking the list
+        pipe_id_file = open(os.path.dirname(__file__) + LAST_RUN_FILE, "w+") # else, start checking the list
         pipelines = []
         for existing_pipeline in pipe_id_file:
-            if existing_pipeline[-1]!=",":
-                pipe_id_file.write(",")
             pipelines = existing_pipeline.split(",")
 
-        if pipelines[-1]=="":
-            pipelines = pipelines[:-1]
         ids_list = [int(pipeline) for pipeline in pipelines]
 
     pipe_id_file.close()
@@ -173,13 +169,13 @@ def compare_ids(ids_in_json_list, ids_in_file_list):
     return new_pipeline_id
 
 
-def print_influx_protocol(print_report_dict, path):
+def print_influx_protocol(print_report_dict, url):
     """
     Print out report function
     """
-    projects_id_search = re.findall("(?<=projects/).*(?=/)", path)
+    projects_id_search = re.findall("(?<=projects/).*(?=/)", url)
     # Why Regex because it's already have a project ID passed into the path so regex can quickly track the
-    # last number in the url and use it get project name.
+    # last number in the url and use it to get project name.
     projects_id = int(projects_id_search[0])
     project_name = get_project_name(projects_id)
     opening_line = "gitlab_test_report,project_id={projectID}".format(projectID=projects_id)
@@ -206,28 +202,27 @@ def print_influx_protocol(print_report_dict, path):
 
 
 def get_report_summary(*arg):
-    # Get Project_paths
+    # Get project paths
     arg=arg[0]
-    projects_locations = get_projects_url_paths() # A List
+    projects_locations = get_projects_url_paths()  # A List
 
     # Get pipeline IDs
-    projs_ids_from_json = get_match_pipe_ids(projects_locations,arg)
-    projs_ids_on_file = existing_pipe_ids()
+    json_pipe_ids = get_match_pipe_ids(projects_locations,arg)
+    file_pipe_ids = existing_pipe_ids()
 
     # Compare IDS
-    compared_ids_list = compare_ids(projs_ids_from_json, projs_ids_on_file)
-
-    if compared_ids_list != projs_ids_on_file and len(compared_ids_list) != 0:
-        id_file = open(os.path.dirname(__file__) + LAST_RUN_FILE, "a")
-        pipe_id_str=''
-        for pipe_id in compared_ids_list:
-            pipe_id_str = pipe_id_str + str(pipe_id) + ","  # Write the IDs onto a file
+    compared_ids_list = compare_ids(json_pipe_ids, file_pipe_ids)
+    if compared_ids_list != file_pipe_ids and len(compared_ids_list) != 0:
+        id_file = open(os.path.dirname(__file__) + LAST_RUN_FILE, "w")
+        list_to_write_to_file = file_pipe_ids + compared_ids_list
+        print(list_to_write_to_file)
+        pipe_id_str = ','.join([str(i) for i in list_to_write_to_file])
         id_file.write(pipe_id_str)
         id_file.close()
         # Get Pipeline IDs infos from compared IDs
         pipe_id_list = []
 
-        for each_project_url in projects_locations: # A single url
+        for each_project_url in projects_locations:  # A single url
             pipes = get_pipe_ids(each_project_url,arg)
             # Get Pipe ID paths from get_pipe_ids(), pipe_ids is all the pipeline IDs stats per project
 
@@ -241,7 +236,7 @@ def get_report_summary(*arg):
                     print_report_dict = {**pipe_tag_dict, **report_dict}
                     # Merge the dictionaries
                     print_influx_protocol(print_report_dict, each_project_url)
-                    # print out the function
+                    # print out the result
 
     elif len(compared_ids_list) == 0:
         print("No new update")
